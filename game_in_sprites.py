@@ -18,6 +18,7 @@ background_color = (0, 0, 0)
 accent_color = (255, 255, 255)
 game_font = pygame.font.Font('freesansbold.ttf', 28)
 countdown_font = pygame.font.Font('freesansbold.ttf', 40)
+menu_font = pygame.font.Font('freesansbold.ttf', 50)
 
 pong_sound = pygame.mixer.Sound('pong.ogg')
 score_sound = pygame.mixer.Sound('score.ogg')
@@ -165,53 +166,116 @@ class GameManager:
         screen.blit(player_score, player_score_rect)
         screen.blit(opponent_score, opponent_score_rect)
 
+    @staticmethod
+    def check_events(current_event, one_player_selected, two_player_selected):
+        if current_event.type == pygame.KEYDOWN:
+            if current_event.key == pygame.K_DOWN:
+                player.movement += player.speed
+            if current_event.key == pygame.K_UP:
+                player.movement -= player.speed
+        if current_event.type == pygame.KEYUP:
+            if current_event.key == pygame.K_DOWN:
+                player.movement -= player.speed
+            if current_event.key == pygame.K_UP:
+                player.movement += player.speed
+        if two_player_selected:
+            if current_event.type == pygame.KEYDOWN:
+                if current_event.key == pygame.K_s:
+                    player2.movement += player.speed
+                if current_event.key == pygame.K_w:
+                    player2.movement -= player.speed
+            if current_event.type == pygame.KEYUP:
+                if current_event.key == pygame.K_s:
+                    player2.movement -= player.speed
+                if current_event.key == pygame.K_w:
+                    player2.movement += player.speed
+
+    def display_menu(self, main_menu, esc_pressed, one_player_selected, two_player_selected):
+        if one_player_selected:
+            one_player = menu_font.render('>  1 Player', True, (0, 255, 0))
+        else:
+            one_player = menu_font.render('    1 Player', True, (255, 0, 30))
+        if two_player_selected:
+            two_player = menu_font.render('>  2 Player', True, (0, 255, 30))
+        else:
+            two_player = menu_font.render('    2 Player', True, (255, 0, 30))
+
+        resume_text = menu_font.render('Press Enter to Resume', True, (0, 0, 255))
+        one_player_rect = one_player.get_rect(midleft=(screen_width / 2 - 70, screen_height / 2 - 50))
+        two_player_rect = two_player.get_rect(midleft=(screen_width / 2 - 70, screen_height / 2 + 50))
+        resume_text_rect = resume_text.get_rect(midleft=(screen_width / 2 - 260, screen_height / 2))
+        screen.fill(background_color)
+        if esc_pressed:
+            screen.blit(resume_text, resume_text_rect)
+        else:
+            screen.blit(one_player, one_player_rect)
+            screen.blit(two_player, two_player_rect)
+        pygame.display.flip()
+        if not main_menu:
+            return main_menu
+
+        return main_menu
+
 
 # Game Objects
-player = Player('player.png', screen_width - 20, screen_height / 2, 5)
+
 paddle_group = pygame.sprite.Group()
-paddle_group.add(player)
-player2 = Player('opponent.png', 20, screen_height / 2, 5)
-
-opponent = Opponent('opponent.png', 20, screen_height / 2, 5)
-paddle_group.add(player2)
-
-ball = Ball('Ball.png', screen_width / 2, screen_height / 2, 4, 4, paddle_group)
 ball_sprite = pygame.sprite.GroupSingle()
-ball_sprite.add(ball)
-
 game_manager = GameManager(ball_sprite, paddle_group)
-
+ball = Ball('Ball.png', screen_width / 2, screen_height / 2, 4, 4, paddle_group)
+ball_sprite.add(ball)
+main_menu = True
+esc_pressed = False
+one_player_selected, two_player_selected = True, False
+new_game = True
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             exit()
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_DOWN:
-                player.movement += player.speed
-            if event.key == pygame.K_UP:
-                player.movement -= player.speed
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_DOWN:
-                player.movement -= player.speed
-            if event.key == pygame.K_UP:
-                player.movement += player.speed
-
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_s:
-                player2.movement += player.speed
-            if event.key == pygame.K_w:
-                player2.movement -= player.speed
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_s:
-                player2.movement -= player.speed
-            if event.key == pygame.K_w:
-                player2.movement += player.speed
+            if event.key == pygame.K_ESCAPE:
+                esc_pressed = True
+                main_menu = True
+        game_manager.check_events(event, one_player_selected, two_player_selected)
     screen.fill(background_color)
     pygame.draw.rect(screen, accent_color, middle_strip)
 
-    game_manager.run_game()
+    while main_menu:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    main_menu = False
+                    esc_pressed = False
+                if not esc_pressed:
+                    if event.key == pygame.K_UP:
+                        one_player_selected, two_player_selected = True, False
+                    if event.key == pygame.K_DOWN:
+                        one_player_selected, two_player_selected = False, True
+        game_manager.display_menu(main_menu, esc_pressed, one_player_selected, two_player_selected)
+        if not main_menu:
+            break
 
+    if new_game:
+        ball.score_time = pygame.time.get_ticks()
+        player = Player('player.png', screen_width - 20, screen_height / 2, 5)
+        paddle_group.add(player)
+        game_manager = GameManager(ball_sprite, paddle_group)
+
+    if one_player_selected:
+        if new_game:
+            opponent = Opponent('opponent.png', 20, screen_height / 2, 5)
+            paddle_group.add(opponent)
+        game_manager.run_game()
+    elif two_player_selected:
+        if new_game:
+            player2 = Player('opponent.png', 20, screen_height / 2, 5)
+            paddle_group.add(player2)
+        game_manager.run_game()
+    new_game = False
     # Rendering
     pygame.display.flip()
     clock.tick(120)
